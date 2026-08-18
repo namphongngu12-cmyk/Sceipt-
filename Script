@@ -1,0 +1,489 @@
+local P=game:GetService("Players")
+local R=game:GetService("RunService")
+local U=game:GetService("UserInputService")
+local L=game:GetService("Lighting")
+local LP=P.LocalPlayer
+local PG=LP:WaitForChild("PlayerGui")
+
+local C={WalkSpeed=32,FlySpeed=32,JumpPower=100,FOV=120,Distance=500,Scale=1,Transparency=.08}
+local S={Aim=false,FOV=true,Fly=false,WalkSpeed=false,HighJump=false,NoClip=false,ESP=false,Wall=false,Tracer=false,Distance=false,FPS=false,Low=false}
+
+local old=PG:FindFirstChild("ALB_HUB")
+if old then old:Destroy() end
+
+local G=Instance.new("ScreenGui")
+G.Name="ALB_HUB"
+G.ResetOnSpawn=false
+G.IgnoreGuiInset=true
+G.Parent=PG
+
+local Sc=Instance.new("UIScale")
+Sc.Scale=C.Scale
+Sc.Parent=G
+
+local M=Instance.new("Frame")
+M.Size=UDim2.fromOffset(430,300)
+M.Position=UDim2.new(.5,-215,.5,-150)
+M.BackgroundColor3=Color3.fromRGB(16,18,22)
+M.BackgroundTransparency=C.Transparency
+M.BorderSizePixel=0
+M.Parent=G
+Instance.new("UICorner",M).CornerRadius=UDim.new(0,12)
+
+local MS=Instance.new("UIStroke")
+MS.Color=Color3.fromRGB(0,255,120)
+MS.Thickness=1.5
+MS.Parent=M
+
+local T=Instance.new("TextLabel")
+T.Size=UDim2.new(1,-100,0,42)
+T.Position=UDim2.fromOffset(14,0)
+T.BackgroundTransparency=1
+T.Text="ALB HUB"
+T.TextColor3=Color3.fromRGB(0,255,120)
+T.Font=Enum.Font.GothamBold
+T.TextSize=20
+T.TextXAlignment=Enum.TextXAlignment.Left
+T.Parent=M
+
+local X=Instance.new("TextButton")
+X.Size=UDim2.fromOffset(38,32)
+X.Position=UDim2.new(1,-45,0,5)
+X.Text="×"
+X.TextSize=22
+X.TextColor3=Color3.new(1,1,1)
+X.BackgroundColor3=Color3.fromRGB(45,25,28)
+X.Parent=M
+Instance.new("UICorner",X).CornerRadius=UDim.new(0,8)
+
+local Min=Instance.new("TextButton")
+Min.Size=UDim2.fromOffset(38,32)
+Min.Position=UDim2.new(1,-88,0,5)
+Min.Text="-"
+Min.TextSize=20
+Min.TextColor3=Color3.new(1,1,1)
+Min.BackgroundColor3=Color3.fromRGB(30,35,40)
+Min.Parent=M
+Instance.new("UICorner",Min).CornerRadius=UDim.new(0,8)
+
+local Bar=Instance.new("Frame")
+Bar.Position=UDim2.fromOffset(10,48)
+Bar.Size=UDim2.new(1,-20,0,38)
+Bar.BackgroundTransparency=1
+Bar.Parent=M
+
+local BL=Instance.new("UIListLayout")
+BL.FillDirection=Enum.FillDirection.Horizontal
+BL.HorizontalAlignment=Enum.HorizontalAlignment.Center
+BL.Padding=UDim.new(0,5)
+BL.Parent=Bar
+
+local Content=Instance.new("Frame")
+Content.Position=UDim2.fromOffset(10,92)
+Content.Size=UDim2.new(1,-20,1,-102)
+Content.BackgroundTransparency=1
+Content.Parent=M
+
+local Tabs={}
+
+local function Tab(n)
+	local B=Instance.new("TextButton")
+	B.Size=UDim2.fromOffset(76,34)
+	B.Text=n
+	B.Font=Enum.Font.GothamSemibold
+	B.TextSize=11
+	B.TextColor3=Color3.fromRGB(210,210,210)
+	B.BackgroundColor3=Color3.fromRGB(27,30,35)
+	B.Parent=Bar
+	Instance.new("UICorner",B).CornerRadius=UDim.new(0,7)
+
+	local Pg=Instance.new("ScrollingFrame")
+	Pg.Size=UDim2.fromScale(1,1)
+	Pg.BackgroundTransparency=1
+	Pg.BorderSizePixel=0
+	Pg.ScrollBarThickness=3
+	Pg.Visible=false
+	Pg.AutomaticCanvasSize=Enum.AutomaticSize.Y
+	Pg.Parent=Content
+
+	local UL=Instance.new("UIListLayout")
+	UL.Padding=UDim.new(0,7)
+	UL.Parent=Pg
+
+	Tabs[n]={B=B,P=Pg}
+
+	B.Activated:Connect(function()
+		for _,v in pairs(Tabs) do
+			v.P.Visible=false
+			v.B.BackgroundColor3=Color3.fromRGB(27,30,35)
+		end
+		Pg.Visible=true
+		B.BackgroundColor3=Color3.fromRGB(0,110,55)
+	end)
+
+	return Pg
+end
+
+local function Toggle(Pg,n,fn)
+	local B=Instance.new("TextButton")
+	B.Size=UDim2.new(1,-5,0,38)
+	B.Text=n.."  TẮT"
+	B.Font=Enum.Font.Gotham
+	B.TextSize=13
+	B.TextColor3=Color3.fromRGB(235,235,235)
+	B.BackgroundColor3=Color3.fromRGB(25,28,33)
+	B.Parent=Pg
+	Instance.new("UICorner",B).CornerRadius=UDim.new(0,8)
+
+	local On=false
+
+	B.Activated:Connect(function()
+		On=not On
+		B.Text=n.."  "..(On and "BẬT" or "TẮT")
+		fn(On)
+	end)
+end
+
+local function Slider(Pg,n,v,min,max,fn)
+	local Fm=Instance.new("Frame")
+	Fm.Size=UDim2.new(1,-5,0,55)
+	Fm.BackgroundColor3=Color3.fromRGB(25,28,33)
+	Fm.Parent=Pg
+	Instance.new("UICorner",Fm).CornerRadius=UDim.new(0,8)
+
+	local Lb=Instance.new("TextLabel")
+	Lb.Size=UDim2.new(1,-24,0,22)
+	Lb.Position=UDim2.fromOffset(12,4)
+	Lb.BackgroundTransparency=1
+	Lb.Text=n.."  "..v
+	Lb.TextColor3=Color3.new(1,1,1)
+	Lb.Font=Enum.Font.Gotham
+	Lb.TextSize=12
+	Lb.TextXAlignment=Enum.TextXAlignment.Left
+	Lb.Parent=Fm
+
+	local Bg=Instance.new("Frame")
+	Bg.Size=UDim2.new(1,-24,0,6)
+	Bg.Position=UDim2.fromOffset(12,36)
+	Bg.BackgroundColor3=Color3.fromRGB(50,55,60)
+	Bg.Parent=Fm
+	Instance.new("UICorner",Bg).CornerRadius=UDim.new(1,0)
+
+	local Fill=Instance.new("Frame")
+	Fill.Size=UDim2.fromScale((v-min)/(max-min),1)
+	Fill.BackgroundColor3=Color3.fromRGB(0,255,120)
+	Fill.Parent=Bg
+	Instance.new("UICorner",Fill).CornerRadius=UDim.new(1,0)
+
+	local Knob=Instance.new("Frame")
+	Knob.Size=UDim2.fromOffset(14,14)
+	Knob.AnchorPoint=Vector2.new(.5,.5)
+	Knob.Position=UDim2.fromScale((v-min)/(max-min),.5)
+	Knob.BackgroundColor3=Color3.fromRGB(235,235,235)
+	Knob.Parent=Bg
+	Instance.new("UICorner",Knob).CornerRadius=UDim.new(1,0)
+
+	local Drag=false
+
+	local function Set(x)
+		local r=math.clamp((x-Bg.AbsolutePosition.X)/Bg.AbsoluteSize.X,0,1)
+		local value=math.floor(min+(max-min)*r)
+		Fill.Size=UDim2.fromScale(r,1)
+		Knob.Position=UDim2.fromScale(r,.5)
+		Lb.Text=n.."  "..value
+		fn(value)
+	end
+
+	Bg.InputBegan:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then
+			Drag=true
+			Set(i.Position.X)
+		end
+	end)
+
+	U.InputChanged:Connect(function(i)
+		if Drag and (i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseMovement) then
+			Set(i.Position.X)
+		end
+	end)
+
+	U.InputEnded:Connect(function(i)
+		if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then
+			Drag=false
+		end
+	end)
+end
+
+local Combat=Tab("Chiến đấu")
+local Movement=Tab("Di chuyển")
+local Visual=Tab("Hiển thị")
+local Performance=Tab("Hiệu năng")
+local Settings=Tab("Cài đặt")
+
+local F=Instance.new("Frame")
+F.Size=UDim2.fromOffset(C.FOV*2,C.FOV*2)
+F.Position=UDim2.fromScale(.5,.5)
+F.AnchorPoint=Vector2.new(.5,.5)
+F.BackgroundTransparency=1
+F.Visible=false
+F.Parent=G
+Instance.new("UICorner",F).CornerRadius=UDim.new(1,0)
+
+local FS=Instance.new("UIStroke")
+FS.Color=Color3.fromRGB(0,255,120)
+FS.Thickness=2
+FS.Parent=F
+
+Toggle(Combat,"Ngắm",function(v)
+	S.Aim=v
+	F.Visible=v and S.FOV
+end)
+
+Toggle(Combat,"Vòng ngắm",function(v)
+	S.FOV=v
+	F.Visible=v and S.Aim
+end)
+
+Slider(Combat,"FOV",C.FOV,20,500,function(v)
+	C.FOV=v
+	F.Size=UDim2.fromOffset(v*2,v*2)
+end)
+
+Slider(Combat,"Khoảng cách",C.Distance,50,2000,function(v)
+	C.Distance=v
+end)
+
+Toggle(Movement,"Bay",function(v) S.Fly=v end)
+
+Slider(Movement,"Tốc độ bay",C.FlySpeed,1,500,function(v)
+	C.FlySpeed=v
+end)
+
+Toggle(Movement,"Tốc độ chạy",function(v)
+	S.WalkSpeed=v
+end)
+
+Slider(Movement,"Tốc độ chạy",C.WalkSpeed,1,500,function(v)
+	C.WalkSpeed=v
+end)
+
+Toggle(Movement,"Nhảy cao",function(v)
+	S.HighJump=v
+end)
+
+Slider(Movement,"Lực nhảy",C.JumpPower,1,500,function(v)
+	C.JumpPower=v
+end)
+
+Toggle(Movement,"Xuyên tường",function(v)
+	S.NoClip=v
+end)
+
+Toggle(Visual,"ESP",function(v)
+	S.ESP=v
+end)
+
+Toggle(Visual,"Nhìn xuyên tường",function(v)
+	S.Wall=v
+end)
+
+Toggle(Visual,"Đường chỉ",function(v)
+	S.Tracer=v
+end)
+
+Toggle(Visual,"Khoảng cách",function(v)
+	S.Distance=v
+end)
+
+Toggle(Performance,"Tăng FPS",function(v)
+	S.FPS=v
+end)
+
+Toggle(Performance,"Đồ họa thấp",function(v)
+	S.Low=v
+end)
+
+Slider(Settings,"Tỉ lệ",C.Scale,60,150,function(v)
+	C.Scale=v/100
+	Sc.Scale=C.Scale
+end)
+
+Slider(Settings,"Trong suốt",C.Transparency*100,0,80,function(v)
+	C.Transparency=v/100
+	M.BackgroundTransparency=C.Transparency
+end)
+
+local Float=Instance.new("TextButton")
+Float.Size=UDim2.fromOffset(58,58)
+Float.Position=UDim2.new(0,15,.5,-29)
+Float.Text="ALB"
+Float.Font=Enum.Font.GothamBold
+Float.TextColor3=Color3.fromRGB(0,255,120)
+Float.BackgroundColor3=Color3.fromRGB(15,20,18)
+Float.Visible=false
+Float.Parent=G
+Instance.new("UICorner",Float).CornerRadius=UDim.new(1,0)
+
+Min.Activated:Connect(function()
+	M.Visible=false
+	Float.Visible=true
+end)
+
+Float.Activated:Connect(function()
+	M.Visible=true
+	Float.Visible=false
+end)
+
+X.Activated:Connect(function()
+	G:Destroy()
+end)
+
+local Drag=false
+local DS
+local DP
+
+M.InputBegan:Connect(function(i)
+	if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then
+		Drag=true
+		DS=i.Position
+		DP=M.Position
+	end
+end)
+
+M.InputChanged:Connect(function(i)
+	if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseMovement then
+		i.Changed:Connect(function()
+			if i.UserInputState==Enum.UserInputState.Change and Drag then
+				local d=i.Position-DS
+				M.Position=UDim2.new(DP.X.Scale,DP.X.Offset+d.X,DP.Y.Scale,DP.Y.Offset+d.Y)
+			end
+		end)
+	end
+end)
+
+U.InputEnded:Connect(function(i)
+	if i.UserInputType==Enum.UserInputType.Touch or i.UserInputType==Enum.UserInputType.MouseButton1 then
+		Drag=false
+	end
+end)
+
+local Char,Hum,Root
+
+local function Character(c)
+	Char=c
+	Hum=c:WaitForChild("Humanoid")
+	Root=c:WaitForChild("HumanoidRootPart")
+end
+
+if LP.Character then Character(LP.Character) end
+LP.CharacterAdded:Connect(Character)
+
+local function GetAimTarget()
+	local Camera=workspace.CurrentCamera
+	local Center=Camera.ViewportSize/2
+	local Best
+	local BestScreen=math.huge
+
+	for _,Player in ipairs(P:GetPlayers()) do
+		if Player~=LP and Player.Character then
+			local H=Player.Character:FindFirstChildOfClass("Humanoid")
+			local Head=Player.Character:FindFirstChild("Head")
+			local RP=Player.Character:FindFirstChild("HumanoidRootPart")
+
+			if H and H.Health>0 and Head and RP then
+				local Distance=(RP.Position-Camera.CFrame.Position).Magnitude
+
+				if Distance<=C.Distance then
+					local Screen,Visible=Camera:WorldToViewportPoint(Head.Position)
+
+					if Visible then
+						local SD=(Vector2.new(Screen.X,Screen.Y)-Center).Magnitude
+
+						if SD<=C.FOV and SD<BestScreen then
+							BestScreen=SD
+							Best=Head
+						end
+					end
+				end
+			end
+		end
+	end
+
+	return Best
+end
+
+local function AimAt(Target)
+	if not Target then return end
+	local Camera=workspace.CurrentCamera
+	local Pos=Camera.CFrame.Position
+	local Goal=CFrame.lookAt(Pos,Target.Position)
+	Camera.CFrame=Camera.CFrame:Lerp(Goal,.18)
+end
+
+R.RenderStepped:Connect(function()
+	if not Hum or not Root then return end
+
+	if S.WalkSpeed then
+		Hum.WalkSpeed=C.WalkSpeed
+	end
+
+	if S.HighJump then
+		Hum.UseJumpPower=true
+		Hum.JumpPower=C.JumpPower
+	end
+
+	if S.NoClip and Char then
+		for _,Part in ipairs(Char:GetDescendants()) do
+			if Part:IsA("BasePart") then
+				Part.CanCollide=false
+			end
+		end
+	end
+
+	if S.Fly then
+		local Dir=Vector3.zero
+		local Cam=workspace.CurrentCamera
+
+		if U:IsKeyDown(Enum.KeyCode.W) then Dir+=Cam.CFrame.LookVector end
+		if U:IsKeyDown(Enum.KeyCode.S) then Dir-=Cam.CFrame.LookVector end
+		if U:IsKeyDown(Enum.KeyCode.A) then Dir-=Cam.CFrame.RightVector end
+		if U:IsKeyDown(Enum.KeyCode.D) then Dir+=Cam.CFrame.RightVector end
+
+		Root.AssemblyLinearVelocity=Dir.Magnitude>0 and Dir.Unit*C.FlySpeed or Vector3.zero
+	end
+
+	if S.Aim then
+		AimAt(GetAimTarget())
+	end
+end)
+
+local ESPObjects={}
+
+local function ClearESP()
+	for _,v in pairs(ESPObjects) do
+		if v then v:Destroy() end
+	end
+	table.clear(ESPObjects)
+end
+
+local function ESP(Player)
+	if Player==LP or not S.ESP or not Player.Character then return end
+
+	local H=Instance.new("Highlight")
+	H.Adornee=Player.Character
+	H.FillTransparency=.75
+	H.OutlineTransparency=.15
+	H.DepthMode=S.Wall and Enum.HighlightDepthMode.AlwaysOnTop or Enum.HighlightDepthMode.Occluded
+	H.Parent=Player.Character
+	ESPObjects[Player]=H
+end
+
+P.PlayerAdded:Connect(function(Player)
+	Player.CharacterAdded:Connect(function()
+		task.wait(.5)
+		ESP(Player)
+	end)
+end)
+
+Tabs["Chiến đấu"].P.Visible=true
+Tabs["Chiến đấu"].B.BackgroundColor3=Color3.fromRGB(0,110,55)
