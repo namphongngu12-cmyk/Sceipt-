@@ -1,0 +1,884 @@
+local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+
+local Player = Players.LocalPlayer
+local PlayerGui = Player:WaitForChild("PlayerGui")
+
+local Old = PlayerGui:FindFirstChild("ALB_HUB")
+if Old then
+	Old:Destroy()
+end
+
+local Config = {
+	FlySpeed = 32,
+	WalkSpeed = 32,
+	JumpPower = 100,
+	AimFOV = 120,
+	UIScale = 1,
+	UITransparency = 0
+}
+
+local State = {
+	Fly = false,
+	Aim = false,
+	Noclip = false,
+	Highlight = false,
+	FPSBoost = false
+}
+
+local Connections = {}
+local Character
+local Humanoid
+local Root
+
+local function Disconnect(Name)
+	local Connection = Connections[Name]
+	if Connection then
+		Connection:Disconnect()
+		Connections[Name] = nil
+	end
+end
+
+local function Connect(Name, Signal, Callback)
+	Disconnect(Name)
+	Connections[Name] = Signal:Connect(Callback)
+	return Connections[Name]
+end
+
+local function BindCharacter(Char)
+	Character = Char
+	Humanoid = Char:WaitForChild("Humanoid")
+	Root = Char:WaitForChild("HumanoidRootPart")
+
+	if State.Noclip then
+		for _, Object in ipairs(Char:GetDescendants()) do
+			if Object:IsA("BasePart") then
+				Object.CanCollide = false
+			end
+		end
+	end
+
+	if State.Highlight then
+		for _, Target in ipairs(Players:GetPlayers()) do
+			if Target ~= Player and Target.Character then
+				local Highlight = Instance.new("Highlight")
+				Highlight.Name = "ALB_Highlight"
+				Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+				Highlight.FillTransparency = 0.65
+				Highlight.Parent = Target.Character
+			end
+		end
+	end
+end
+
+if Player.Character then
+	BindCharacter(Player.Character)
+end
+
+Player.CharacterAdded:Connect(function(Char)
+	BindCharacter(Char)
+end)
+
+local GUI = Instance.new("ScreenGui")
+GUI.Name = "ALB_HUB"
+GUI.ResetOnSpawn = false
+GUI.IgnoreGuiInset = true
+GUI.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+GUI.Parent = PlayerGui
+
+local function Corner(Object, Radius)
+	local C = Instance.new("UICorner")
+	C.CornerRadius = UDim.new(0, Radius)
+	C.Parent = Object
+end
+
+local function Stroke(Object)
+	local S = Instance.new("UIStroke")
+	S.Thickness = 1
+	S.Transparency = 0.25
+	S.Parent = Object
+end
+
+local Main = Instance.new("Frame")
+Main.Size = UDim2.fromOffset(620, 330)
+Main.Position = UDim2.new(0.5, -310, 0.5, -165)
+Main.BackgroundColor3 = Color3.fromRGB(22, 22, 29)
+Main.BorderSizePixel = 0
+Main.Parent = GUI
+Corner(Main, 16)
+Stroke(Main)
+
+local Scale = Instance.new("UIScale")
+Scale.Scale = Config.UIScale
+Scale.Parent = Main
+
+local TopBar = Instance.new("Frame")
+TopBar.Size = UDim2.new(1, 0, 0, 48)
+TopBar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+TopBar.BorderSizePixel = 0
+TopBar.Parent = Main
+Corner(TopBar, 16)
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -100, 1, 0)
+Title.Position = UDim2.fromOffset(14, 0)
+Title.BackgroundTransparency = 1
+Title.Text = "ALB HUB"
+Title.TextColor3 = Color3.new(1, 1, 1)
+Title.TextSize = 18
+Title.Font = Enum.Font.GothamBold
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = TopBar
+
+local Minimize = Instance.new("TextButton")
+Minimize.Size = UDim2.fromOffset(32, 32)
+Minimize.Position = UDim2.new(1, -78, 0, 8)
+Minimize.Text = "-"
+Minimize.TextSize = 18
+Minimize.Font = Enum.Font.GothamBold
+Minimize.TextColor3 = Color3.new(1, 1, 1)
+Minimize.BackgroundColor3 = Color3.fromRGB(60, 60, 72)
+Minimize.Parent = TopBar
+Corner(Minimize, 8)
+
+local Close = Instance.new("TextButton")
+Close.Size = UDim2.fromOffset(32, 32)
+Close.Position = UDim2.new(1, -40, 0, 8)
+Close.Text = "X"
+Close.TextSize = 15
+Close.Font = Enum.Font.GothamBold
+Close.TextColor3 = Color3.new(1, 1, 1)
+Close.BackgroundColor3 = Color3.fromRGB(185, 55, 65)
+Close.Parent = TopBar
+Corner(Close, 8)
+
+local Float = Instance.new("TextButton")
+Float.Size = UDim2.fromOffset(60, 60)
+Float.Position = UDim2.new(0, 20, 0.5, -30)
+Float.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+Float.Text = "ALB"
+Float.TextColor3 = Color3.new(1, 1, 1)
+Float.TextSize = 12
+Float.Font = Enum.Font.GothamBold
+Float.Visible = false
+Float.Parent = GUI
+Corner(Float, 30)
+Stroke(Float)
+
+local Dragging = false
+local DragStart
+local StartPosition
+
+TopBar.InputBegan:Connect(function(Input)
+	if Input.UserInputType == Enum.UserInputType.Touch
+		or Input.UserInputType == Enum.UserInputType.MouseButton1 then
+		Dragging = true
+		DragStart = Input.Position
+		StartPosition = Main.Position
+	end
+end)
+
+UserInputService.InputChanged:Connect(function(Input)
+	if not Dragging then
+		return
+	end
+
+	if Input.UserInputType == Enum.UserInputType.Touch
+		or Input.UserInputType == Enum.UserInputType.MouseMovement then
+
+		local Delta = Input.Position - DragStart
+
+		Main.Position = UDim2.new(
+			StartPosition.X.Scale,
+			StartPosition.X.Offset + Delta.X,
+			StartPosition.Y.Scale,
+			StartPosition.Y.Offset + Delta.Y
+		)
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(Input)
+	if Input.UserInputType == Enum.UserInputType.Touch
+		or Input.UserInputType == Enum.UserInputType.MouseButton1 then
+		Dragging = false
+	end
+end)
+
+Minimize.Activated:Connect(function()
+	Main.Visible = false
+	Float.Visible = true
+end)
+
+Float.Activated:Connect(function()
+	Float.Visible = false
+	Main.Visible = true
+end)
+
+Close.Activated:Connect(function()
+	GUI:Destroy()
+end)
+
+local Tabs = Instance.new("ScrollingFrame")
+Tabs.Size = UDim2.new(0, 135, 1, -60)
+Tabs.Position = UDim2.fromOffset(10, 55)
+Tabs.BackgroundColor3 = Color3.fromRGB(29, 29, 38)
+Tabs.BorderSizePixel = 0
+Tabs.ScrollBarThickness = 3
+Tabs.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Tabs.Parent = Main
+Corner(Tabs, 12)
+
+local TabLayout = Instance.new("UIListLayout")
+TabLayout.Padding = UDim.new(0, 6)
+TabLayout.Parent = Tabs
+
+local Content = Instance.new("ScrollingFrame")
+Content.Size = UDim2.new(1, -165, 1, -60)
+Content.Position = UDim2.fromOffset(155, 55)
+Content.BackgroundColor3 = Color3.fromRGB(29, 29, 38)
+Content.BorderSizePixel = 0
+Content.ScrollBarThickness = 4
+Content.AutomaticCanvasSize = Enum.AutomaticSize.Y
+Content.Parent = Main
+Corner(Content, 12)
+
+local Padding = Instance.new("UIPadding")
+Padding.PaddingTop = UDim.new(0, 10)
+Padding.PaddingBottom = UDim.new(0, 10)
+Padding.PaddingLeft = UDim.new(0, 10)
+Padding.PaddingRight = UDim.new(0, 10)
+Padding.Parent = Content
+
+local ContentLayout = Instance.new("UIListLayout")
+ContentLayout.Padding = UDim.new(0, 8)
+ContentLayout.Parent = Content
+
+local Pages = {}
+local Buttons = {}
+
+local function CreateTab(Name)
+	local Page = Instance.new("Frame")
+	Page.Name = Name
+	Page.Size = UDim2.new(1, 0, 0, 0)
+	Page.AutomaticSize = Enum.AutomaticSize.Y
+	Page.BackgroundTransparency = 1
+	Page.Visible = false
+	Page.Parent = Content
+
+	local Layout = Instance.new("UIListLayout")
+	Layout.Padding = UDim.new(0, 8)
+	Layout.Parent = Page
+
+	local Button = Instance.new("TextButton")
+	Button.Size = UDim2.new(1, -10, 0, 38)
+	Button.BackgroundColor3 = Color3.fromRGB(55, 55, 68)
+	Button.Text = Name
+	Button.TextColor3 = Color3.new(1, 1, 1)
+	Button.TextSize = 13
+	Button.Font = Enum.Font.GothamMedium
+	Button.Parent = Tabs
+	Corner(Button, 9)
+
+	Pages[Name] = Page
+	Buttons[Name] = Button
+
+	Button.Activated:Connect(function()
+		for TabName, TabPage in pairs(Pages) do
+			local Active = TabName == Name
+			TabPage.Visible = Active
+			Buttons[TabName].BackgroundColor3 =
+				Active
+				and Color3.fromRGB(80, 110, 220)
+				or Color3.fromRGB(55, 55, 68)
+		end
+	end)
+
+	return Page
+end
+
+local Movement = CreateTab("Movement")
+local Combat = CreateTab("Combat")
+local Visual = CreateTab("Visual")
+local Teleport = CreateTab("Teleport")
+local Settings = CreateTab("Settings")
+
+local function CreateSwitch(Parent, Text, Default, Callback)
+	local Row = Instance.new("Frame")
+	Row.Size = UDim2.new(1, 0, 0, 42)
+	Row.BackgroundTransparency = 1
+	Row.Parent = Parent
+
+	local Label = Instance.new("TextLabel")
+	Label.Size = UDim2.new(1, -70, 1, 0)
+	Label.BackgroundTransparency = 1
+	Label.Text = Text
+	Label.TextColor3 = Color3.new(1, 1, 1)
+	Label.TextSize = 14
+	Label.Font = Enum.Font.Gotham
+	Label.TextXAlignment = Enum.TextXAlignment.Left
+	Label.Parent = Row
+
+	local Button = Instance.new("TextButton")
+	Button.Size = UDim2.fromOffset(52, 28)
+	Button.Position = UDim2.new(1, -52, 0.5, -14)
+	Button.Text = ""
+	Button.AutoButtonColor = false
+	Button.Parent = Row
+	Corner(Button, 20)
+
+	local Knob = Instance.new("Frame")
+	Knob.Size = UDim2.fromOffset(22, 22)
+	Knob.Parent = Button
+	Corner(Knob, 20)
+
+	local Value = Default
+
+	local function Render()
+		Button.BackgroundColor3 = Value
+			and Color3.fromRGB(70, 190, 110)
+			or Color3.fromRGB(65, 65, 78)
+
+		Knob.Position = Value
+			and UDim2.new(1, -24, 0, 3)
+			or UDim2.fromOffset(2, 3)
+	end
+
+	Render()
+
+	Button.Activated:Connect(function()
+		Value = not Value
+		Render()
+
+		if Callback then
+			Callback(Value)
+		end
+	end)
+
+	return {
+		Get = function()
+			return Value
+		end,
+
+		Set = function(NewValue)
+			Value = NewValue == true
+			Render()
+
+			if Callback then
+				Callback(Value)
+			end
+		end
+	}
+end
+
+local SliderCounter = 0
+
+local function CreateSlider(Parent, Name, Min, Max, Default, Callback)
+	SliderCounter += 1
+	local Id = tostring(SliderCounter)
+
+	local Container = Instance.new("Frame")
+	Container.Size = UDim2.new(1, 0, 0, 62)
+	Container.BackgroundTransparency = 1
+	Container.Parent = Parent
+
+	local Label = Instance.new("TextLabel")
+	Label.Size = UDim2.new(1, 0, 0, 20)
+	Label.BackgroundTransparency = 1
+	Label.Text = Name
+	Label.TextColor3 = Color3.fromRGB(190, 190, 200)
+	Label.TextSize = 13
+	Label.Font = Enum.Font.Gotham
+	Label.TextXAlignment = Enum.TextXAlignment.Left
+	Label.Parent = Container
+
+	local Minus = Instance.new("TextButton")
+	Minus.Size = UDim2.fromOffset(28, 28)
+	Minus.Position = UDim2.fromOffset(0, 25)
+	Minus.Text = "-"
+	Minus.TextSize = 18
+	Minus.Font = Enum.Font.GothamBold
+	Minus.TextColor3 = Color3.new(1, 1, 1)
+	Minus.BackgroundColor3 = Color3.fromRGB(65, 65, 78)
+	Minus.Parent = Container
+	Corner(Minus, 8)
+
+	local Bar = Instance.new("Frame")
+	Bar.Size = UDim2.new(1, -150, 0, 10)
+	Bar.Position = UDim2.fromOffset(36, 34)
+	Bar.BackgroundColor3 = Color3.fromRGB(65, 65, 78)
+	Bar.Parent = Container
+	Corner(Bar, 10)
+
+	local Fill = Instance.new("Frame")
+	Fill.BackgroundColor3 = Color3.fromRGB(80, 110, 220)
+	Fill.Size = UDim2.fromScale(0, 1)
+	Fill.Parent = Bar
+	Corner(Fill, 10)
+
+	local Plus = Instance.new("TextButton")
+	Plus.Size = UDim2.fromOffset(28, 28)
+	Plus.Position = UDim2.new(1, -100, 0, 25)
+	Plus.Text = "+"
+	Plus.TextSize = 18
+	Plus.Font = Enum.Font.GothamBold
+	Plus.TextColor3 = Color3.new(1, 1, 1)
+	Plus.BackgroundColor3 = Color3.fromRGB(65, 65, 78)
+	Plus.Parent = Container
+	Corner(Plus, 8)
+
+	local Input = Instance.new("TextBox")
+	Input.Size = UDim2.fromOffset(62, 28)
+	Input.Position = UDim2.new(1, -65, 0, 25)
+	Input.TextColor3 = Color3.new(1, 1, 1)
+	Input.BackgroundColor3 = Color3.fromRGB(65, 65, 78)
+	Input.Font = Enum.Font.Gotham
+	Input.TextSize = 12
+	Input.ClearTextOnFocus = false
+	Input.Parent = Container
+	Corner(Input, 8)
+
+	local Value = math.clamp(Default, Min, Max)
+	local DraggingSlider = false
+	local Step = math.max((Max - Min) / 50, 0.1)
+
+	local function SetValue(NewValue)
+		Value = math.clamp(tonumber(NewValue) or Value, Min, Max)
+
+		local Percent = (Value - Min) / (Max - Min)
+
+		Fill.Size = UDim2.fromScale(Percent, 1)
+		Input.Text = tostring(math.floor(Value * 100) / 100)
+
+		if Callback then
+			Callback(Value)
+		end
+	end
+
+	local function Update(Position)
+		if Bar.AbsoluteSize.X <= 0 then
+			return
+		end
+
+		local Percent = math.clamp(
+			(Position.X - Bar.AbsolutePosition.X) / Bar.AbsoluteSize.X,
+			0,
+			1
+		)
+
+		SetValue(Min + (Max - Min) * Percent)
+	end
+
+	SetValue(Value)
+
+	Minus.Activated:Connect(function()
+		SetValue(Value - Step)
+	end)
+
+	Plus.Activated:Connect(function()
+		SetValue(Value + Step)
+	end)
+
+	Input.FocusLost:Connect(function()
+		local Number = tonumber(Input.Text)
+
+		if Number then
+			SetValue(Number)
+		else
+			SetValue(Value)
+		end
+	end)
+
+	Bar.InputBegan:Connect(function(InputObject)
+		if InputObject.UserInputType == Enum.UserInputType.Touch
+			or InputObject.UserInputType == Enum.UserInputType.MouseButton1 then
+
+			DraggingSlider = true
+			Update(InputObject.Position)
+		end
+	end)
+
+	Connect(
+		"SliderMove_" .. Id,
+		UserInputService.InputChanged,
+		function(InputObject)
+			if not DraggingSlider then
+				return
+			end
+
+			if InputObject.UserInputType == Enum.UserInputType.Touch
+				or InputObject.UserInputType == Enum.UserInputType.MouseMovement then
+
+				Update(InputObject.Position)
+			end
+		end
+	)
+
+	Connect(
+		"SliderEnd_" .. Id,
+		UserInputService.InputEnded,
+		function(InputObject)
+			if InputObject.UserInputType == Enum.UserInputType.Touch
+				or InputObject.UserInputType == Enum.UserInputType.MouseButton1 then
+
+				DraggingSlider = false
+			end
+		end
+	)
+
+	return {
+		Get = function()
+			return Value
+		end,
+
+		Set = SetValue
+	}
+end
+
+local FlySpeed = CreateSlider(
+	Movement,
+	"Fly Speed",
+	8,
+	200,
+	Config.FlySpeed
+)
+
+local FlyButtons = Instance.new("Frame")
+FlyButtons.Size = UDim2.fromOffset(130, 55)
+FlyButtons.Position = UDim2.new(1, -145, 1, -65)
+FlyButtons.BackgroundTransparency = 1
+FlyButtons.Visible = false
+FlyButtons.Parent = GUI
+
+local Up = Instance.new("TextButton")
+Up.Size = UDim2.fromOffset(58, 48)
+Up.Text = "▲"
+Up.TextSize = 22
+Up.Font = Enum.Font.GothamBold
+Up.TextColor3 = Color3.new(1, 1, 1)
+Up.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+Up.Parent = FlyButtons
+Corner(Up, 12)
+
+local Down = Instance.new("TextButton")
+Down.Size = UDim2.fromOffset(58, 48)
+Down.Position = UDim2.fromOffset(65, 0)
+Down.Text = "▼"
+Down.TextSize = 22
+Down.Font = Enum.Font.GothamBold
+Down.TextColor3 = Color3.new(1, 1, 1)
+Down.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
+Down.Parent = FlyButtons
+Corner(Down, 12)
+
+local FlyUp = false
+local FlyDown = false
+
+local function Hold(Button, Callback)
+	Button.InputBegan:Connect(function(Input)
+		if Input.UserInputType == Enum.UserInputType.Touch
+			or Input.UserInputType == Enum.UserInputType.MouseButton1 then
+			Callback(true)
+		end
+	end)
+
+	Button.InputEnded:Connect(function(Input)
+		if Input.UserInputType == Enum.UserInputType.Touch
+			or Input.UserInputType == Enum.UserInputType.MouseButton1 then
+			Callback(false)
+		end
+	end)
+end
+
+Hold(Up, function(Value)
+	FlyUp = Value
+end)
+
+Hold(Down, function(Value)
+	FlyDown = Value
+end)
+
+local FlySwitch = CreateSwitch(
+	Movement,
+	"Fly",
+	false,
+	function(Enabled)
+		State.Fly = Enabled
+		FlyButtons.Visible = Enabled
+
+		Disconnect("Fly")
+
+		if not Enabled then
+			if Root then
+				Root.AssemblyLinearVelocity = Vector3.zero
+			end
+			return
+		end
+
+		Connect("Fly", RunService.RenderStepped, function()
+			if not Character or not Humanoid or not Root then
+				return
+			end
+
+			local Camera = workspace.CurrentCamera
+			if not Camera then
+				return
+			end
+
+			local Move = Humanoid.MoveDirection
+			local Vertical = 0
+
+			if FlyUp then
+				Vertical += 1
+			end
+
+			if FlyDown then
+				Vertical -= 1
+			end
+
+			local Speed = FlySpeed.Get()
+
+			Root.AssemblyLinearVelocity =
+				Move * Speed +
+				Vector3.new(0, Vertical * Speed, 0)
+		end)
+	end
+)
+
+local WalkSpeed = CreateSlider(
+	Movement,
+	"WalkSpeed",
+	8,
+	200,
+	Config.WalkSpeed
+)
+
+CreateSwitch(
+	Movement,
+	"WalkSpeed",
+	false,
+	function(Enabled)
+		if Humanoid then
+			Humanoid.WalkSpeed = Enabled and WalkSpeed.Get() or 16
+		end
+	end
+)
+
+local JumpPower = CreateSlider(
+	Movement,
+	"JumpPower",
+	20,
+	300,
+	Config.JumpPower
+)
+
+CreateSwitch(
+	Movement,
+	"JumpPower",
+	false,
+	function(Enabled)
+		if Humanoid then
+			Humanoid.UseJumpPower = true
+			Humanoid.JumpPower = Enabled and JumpPower.Get() or 50
+		end
+	end
+)
+
+CreateSwitch(
+	Movement,
+	"Walk Through Walls",
+	false,
+	function(Enabled)
+		State.Noclip = Enabled
+
+		Disconnect("Noclip")
+
+		if not Enabled then
+			if Character then
+				for _, Object in ipairs(Character:GetDescendants()) do
+					if Object:IsA("BasePart") then
+						Object.CanCollide = true
+					end
+				end
+			end
+			return
+		end
+
+		Connect("Noclip", RunService.Stepped, function()
+			if not Character then
+				return
+			end
+
+			for _, Object in ipairs(Character:GetDescendants()) do
+				if Object:IsA("BasePart") then
+					Object.CanCollide = false
+				end
+			end
+		end)
+	end
+)
+
+local FOVCircle = Instance.new("Frame")
+FOVCircle.Size = UDim2.fromOffset(Config.AimFOV * 2, Config.AimFOV * 2)
+FOVCircle.Position = UDim2.fromScale(0.5, 0.5)
+FOVCircle.AnchorPoint = Vector2.new(0.5, 0.5)
+FOVCircle.BackgroundTransparency = 1
+FOVCircle.Visible = false
+FOVCircle.Parent = GUI
+Corner(FOVCircle, 999)
+Stroke(FOVCircle)
+
+local AimFOV = CreateSlider(
+	Combat,
+	"Aim FOV",
+	30,
+	500,
+	Config.AimFOV,
+	function(Value)
+		FOVCircle.Size = UDim2.fromOffset(Value * 2, Value * 2)
+	end
+)
+
+local function GetClosestTarget()
+	local Camera = workspace.CurrentCamera
+	if not Camera then
+		return nil
+	end
+
+	local Center = Camera.ViewportSize / 2
+	local Closest
+	local ClosestDistance = math.huge
+
+	for _, Target in ipairs(Players:GetPlayers()) do
+		if Target ~= Player and Target.Character then
+			local TargetRoot =
+				Target.Character:FindFirstChild("HumanoidRootPart")
+
+			local TargetHumanoid =
+				Target.Character:FindFirstChildOfClass("Humanoid")
+
+			if TargetRoot and TargetHumanoid and TargetHumanoid.Health > 0 then
+				local Position, Visible =
+					Camera:WorldToViewportPoint(TargetRoot.Position)
+
+				if Visible then
+					local Distance =
+						(Vector2.new(Position.X, Position.Y) - Center).Magnitude
+
+					if Distance <= AimFOV.Get()
+						and Distance < ClosestDistance then
+
+						ClosestDistance = Distance
+						Closest = TargetRoot
+					end
+				end
+			end
+		end
+	end
+
+	return Closest
+end
+
+CreateSwitch(
+	Combat,
+	"Aim",
+	false,
+	function(Enabled)
+		State.Aim = Enabled
+		FOVCircle.Visible = Enabled
+
+		Disconnect("Aim")
+
+		if not Enabled then
+			return
+		end
+
+		Connect("Aim", RunService.RenderStepped, function()
+			local Camera = workspace.CurrentCamera
+			local Target = GetClosestTarget()
+
+			if Camera and Target then
+				Camera.CFrame = CFrame.lookAt(
+					Camera.CFrame.Position,
+					Target.Position
+				)
+			end
+		end)
+	end
+)
+
+CreateSwitch(
+	Visual,
+	"Wall Highlight",
+	false,
+	function(Enabled)
+		State.Highlight = Enabled
+
+		for _, Target in ipairs(Players:GetPlayers()) do
+			if Target ~= Player and Target.Character then
+				local Highlight =
+					Target.Character:FindFirstChild("ALB_Highlight")
+
+				if Enabled then
+					if not Highlight then
+						Highlight = Instance.new("Highlight")
+						Highlight.Name = "ALB_Highlight"
+						Highlight.DepthMode =
+							Enum.HighlightDepthMode.AlwaysOnTop
+						Highlight.FillTransparency = 0.65
+						Highlight.Parent = Target.Character
+					end
+
+					Highlight.Enabled = true
+				elseif Highlight then
+					Highlight:Destroy()
+				end
+			end
+		end
+	end
+)
+
+Players.PlayerAdded:Connect(function(Target)
+	Target.CharacterAdded:Connect(function(Char)
+		if State.Highlight and Target ~= Player then
+			local Highlight = Instance.new("Highlight")
+			Highlight.Name = "ALB_Highlight"
+			Highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+			Highlight.FillTransparency = 0.65
+			Highlight.Parent = Char
+		end
+	end)
+end)
+
+local Search = Instance.new("TextBox")
+Search.Size = UDim2.new(1, 0, 0, 36)
+Search.PlaceholderText = "Tìm người chơi"
+Search.Text = ""
+Search.TextColor3 = Color3.new(1, 1, 1)
+Search.PlaceholderColor3 = Color3.fromRGB(150, 150, 160)
+Search.BackgroundColor3 = Color3.fromRGB(60, 60, 72)
+Search.Font = Enum.Font.Gotham
+Search.TextSize = 13
+Search.ClearTextOnFocus = false
+Search.Parent = Teleport
+Corner(Search, 9)
+
+local PlayerList = Instance.new("ScrollingFrame")
+PlayerList.Size = UDim2.new(1, 0, 0, 150)
+PlayerList.BackgroundColor3 = Color3.fromRGB(38, 38, 48)
+PlayerList.BorderSizePixel = 0
+PlayerList.ScrollBarThickness = 3
+PlayerList.AutomaticCanvasSize = Enum.AutomaticSize.Y
+PlayerList.Parent = Teleport
+Corner(PlayerList, 10)
+
+local PlayerLayout = Instance.new("UIListLayout")
+PlayerLayout.Padding = UDim.new(0, 5)
+PlayerLayout.Parent = PlayerList
+
+local SelectedPlayer
+
+local function RefreshPlayers()
+	for _, Object in ipairs(PlayerList:GetChildren()) do
+		if Ob
